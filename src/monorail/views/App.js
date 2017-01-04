@@ -1,24 +1,19 @@
 // Copyright 2015, EMC, Inc.
 
 import React, { Component, PropTypes } from 'react';
-// import { Link } from 'react-router';
+import { Link } from 'react-router';
 
 import merge from 'lodash/merge';
 
-import config from 'src-config';
 import Messenger from 'src-common/lib/Messenger';
+import config from 'src-config';
+import RackHDRestAPIv2_0 from 'src-common/messengers/RackHDRestAPIv2_0';
+import ProgressEventsMessenger from 'src-common/messengers/ProgressEventsMessenger';
 import AppContainer from 'src-common/views/AppContainer';
+import GraphProgressTable from './GraphProgressTable';
+import {LinearProgress, AppBar} from 'material-ui';
 import {
-    AppBar,
-    FlatButton,
-    Badge,
-    Table,
-    TableHeaderColumn,
-    TableRow,
-    TableHeader,
-    TableRowColumn,
-    TableBody,
-    Divider
+    FlatButton
 } from 'material-ui';
 
 export default class App extends Component {
@@ -28,117 +23,252 @@ export default class App extends Component {
 
         let self = this;
 
-        self.eventRecords= {};
-        self.newEventId = 1;
+        this.tableHeaderSent = true;
+
+        self.graphProgressCollection = {};
 
         console.log("Starting to monitor websocket");
         this.events = new Messenger('text', config.MonoRail_WSS);
         this.events.connect();
         this.events.on('message', msg => {
 
+            if(! self.state.hasFirstEvent) {
+                self.setState({hasFirstEvent: true});
+            }
+
             console.log('message received: ', msg);
 
-            let eventRecord = msg;
-            eventRecord.createdAt = new Date();
-            // eventRecord.data = msg;
+            //var graphId = self.getGraphIdFromMsg(msg);
 
-            self.eventRecords[self.newEventId] = eventRecord;
+            //console.log('GraphId list: ', self.graphProgressCollection);
 
-            self.newEventId += 1;
+            //RackHDRestAPIv2_0.then(function(client){
+                //client.workflowsGetByInstanceId(
+                    //{identifier: graphId}
+                //)
+                    //.then(function(workflows){
+                        //console.log('API result: ', workflows.obj);
 
-            self.setState({eventRecords: self.eventRecords});
-        });
+                        //if(workflows.obj.status === 'cancelled') {
+                            //return;
+                        //}
+
+                        //self.graphProgressCollection[graphId] = {};
+                        self.graphProgressCollection[0] = {
+                            graphStatus: "running",
+                            graphProgress: "0",
+                            graphDesc: "test graph",
+                            graphName: "install CentOS",
+                            graphId: "123",
+                            tasks: {}
+                        };
+
+                        self.graphProgressCollection[0].tasks['abc'] = {
+                            taskName: "install centos",
+                            taskStatus: "pending",
+                            taskProgress: 0,
+                            taskDesc: "test task"
+                        };
+
+                        //merge(
+                            //self.graphProgressCollection[graphId],
+                            //self.decodeApiResult(workflows.obj),
+                            //self.decodeMsg(msg)
+                        //);
+
+                        console.log('-----graphProgressCollection', self.graphProgressCollection);
+
+                        self.setState(self.graphProgressCollection);
+                    });
+                    //.catch(function(err){
+                        //console.log("fail checking status for", graphId);
+                        //console.log("error message", err);
+
+                        //if(self.graphIdInCollection(graphId)) {
+                            //delete self.graphProgressCollection[graphId];
+                        //}
+                    //})
+            //})
+        //});
 
         return this;
     }
 
     state = {
-        eventRecords: {}
+        hasFirstEvent: false,
+        graphProgress : 0,
+        graphDesc: '',
+        graphName: '',
+        graphId: '',
+        taskProgress: 0,
+        taskName: '',
+        taskId: '',
+        taskDesc: ''
     }
 
-    // static contextTypes = {
-    //     muiTheme: PropTypes.any,
-    //     router: PropTypes.any
-    // }
+    static contextTypes = {
+        muiTheme: PropTypes.any,
+        router: PropTypes.any
+    }
 
-    renderBar = () => {
+    graphIdInCollection = (id) => {
+        if(Object.keys(this.graphProgressCollection).indexOf(id) >= 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    checkSendTableHeader = () => {
+        let ret = this.tableHeaderSent;
+
+        console.log(this.tableHeaderSent);
+
+        if(this.tableHeaderSent) {
+            this.tableHeaderSent = false;
+        }
+
+        return ret;
+    }
+
+    calcGraphProgress = (tasks) => {
+        console.log('tasks: ', tasks);
+        let totalTaskCount = tasks.length;
+
+        if(totalTaskCount === 0) {
+            return "0%";
+        }
+
+        let finishedTaskCount = 0;
+
+        tasks.forEach(function(task){
+            if(task.state === 'succeeded' || task.state === 'failed') {
+                finishedTaskCount += 1;
+            }
+        });
+
+        let progress = (finishedTaskCount*100/totalTaskCount);
+        console.log('taskProgress Info: ', progress, totalTaskCount, finishedTaskCount);
+
+        return progress;
+    }
+
+    getGraphIdFromMsg = (msg) => {
+        return msg.data.graphId;
+    }
+
+    decodeApiResult = (apiResult) => {
+        var ret = {};
+        ret.graphStatus = apiResult.status;
+        ret.graphProgress = this.calcGraphProgress(apiResult.tasks);
+
+        ret['tasks'] = {};
+
+        apiResult.tasks.forEach(function(task) {
+            let taskProgress = 0;
+
+            if (task.state === 'succeeded' || task.state === 'failed') {
+                taskProgress = 100;
+            }
+            ret['tasks'][task.instanceId] = {
+                taskName: task.label,
+                taskStatus: task.state,
+                taskProgress: taskProgress,
+                taskDesc: task.label
+            }
+        });
+
+        console.log('----decoded message from ApiResult', ret)
+
+        return ret;
+    }
+
+    decodeMsg = (msg) => {
+        let ret = {};
+        // ret.graphProgress = this.formatProgress(msg.data.progress.percentage);
+        ret.graphDesc = msg.data.progress.description;
+        ret.graphName = msg.data.graphName;
+        ret.graphId = msg.data.graphId;
+
+        ret['tasks'] = {};
+
+        if(msg.data.taskProgress) {
+            let taskId = msg.data.taskProgress.taskId;
+            ret['tasks'][taskId] = {
+                taskProgress: this.formatProgress(msg.data.taskProgress.progress.percentage),
+                taskDesc: msg.data.taskProgress.progress.description,
+                taskName: msg.data.taskProgress.taskName
+            }
+        }
+
+        console.log('decoded progress from Msg: ', ret);
+
+        return ret;
+    }
+
+    formatProgress = (progressStr) => {
+        var progressNum = parseInt(progressStr);
+        if(isNaN(progressNum)){
+            progressNum = 0;
+        }
+
+        return progressNum;
+    }
+
+    renderOneGraph = () => {
+    }
+
+    renderHeader = () => {
         return (
             <AppBar
-                title="Tools for event webhook demonstration"
+                title="Tools for demo progress notification"
             />
-        );
+        )
     }
-    renderTableHeader = () => {
-            return (
-                <TableHeader
-                    displaySelectAll={false}
-                    enableSelectAll={false}
-                    adjustForCheckbox={false}
-                >
-                    <TableRow>
-                        <TableHeaderColumn>Id</TableHeaderColumn>
-                        <TableHeaderColumn>CreatedAt</TableHeaderColumn>
-                        <TableHeaderColumn>Type</TableHeaderColumn>
-                        <TableHeaderColumn>Type Id</TableHeaderColumn>
-                        <TableHeaderColumn>Action</TableHeaderColumn>
-                        <TableHeaderColumn>NodeId</TableHeaderColumn>
-                        <TableHeaderColumn>Message</TableHeaderColumn>
-                    </TableRow>
-                </TableHeader>
-            );
-    }
-    renderTableContent = () => {
+    renderContent = () => {
         var self = this;
-        let eventRecordElements = [];
-        let eventRecords = self.state.eventRecords;
-        // let eventRecords = {"1": {"time": "dafd", "message": "dafdaf"}};
 
-        console.log(eventRecords);
+        if(! self.state.hasFirstEvent) {
+            return (
+                <div>
+                    <FlatButton label="No notification arrive yet"/>
+                </div>
+            )
+        }
 
-        Object.keys(eventRecords).forEach(function(eventId){
+        let graphProgressElements = [];
 
-            let eventRecord = eventRecords[eventId];
-            let data = JSON.stringify(eventRecord, undefined, 2);
-            let createdAt = JSON.stringify(eventRecord.createdAt);
-            let type = eventRecord.type || '';
-            let typeId = eventRecord.typeId || '';
-            let action = eventRecord.action || '';
-            let nodeId = eventRecord.nodeId || '';
-            console.log('eventRecord', eventRecord);
+        let showHeader = true;
 
-            eventRecordElements.push(
-            <TableRow key={eventId}>
-                <TableRowColumn>{eventId}</TableRowColumn>
-                <TableRowColumn>{createdAt}</TableRowColumn>
-                <TableRowColumn>{type}</TableRowColumn>
-                <TableRowColumn>{typeId}</TableRowColumn>
-                <TableRowColumn>{action}</TableRowColumn>
-                <TableRowColumn>{nodeId}</TableRowColumn>
-                <TableRowColumn>
-                    <pre>
-                        {data}
-                    </pre>
-                </TableRowColumn>
-            </TableRow>
-            );
+        Object.keys(self.graphProgressCollection).forEach(function(graphId){
+
+            let graphState = self.state[graphId];
+
+            graphProgressElements.push(
+                <div>
+                    <GraphProgressTable
+                        key={graphId}
+                        showHeader={showHeader}
+                        graphData={graphState}
+                    />
+                </div>
+            )
+
+            showHeader = false;
         });
 
         return (
-            <TableBody displayRowCheckbox={false}>
-                {eventRecordElements}
-            </TableBody>
+            <div>
+                {graphProgressElements}
+            </div>
         )
     }
 
     render(){
         return (
             <AppContainer key="app">
-                {this.renderBar()}
-                <Table fixedHeader={false} style={{tableLayout: 'auto', align: 'left'}}>
-                    {this.renderTableHeader()}
-                    {this.renderTableContent()}
-                </Table>
-                <Divider />
+                {this.renderHeader()}
+                {this.renderContent()}
             </AppContainer>
         )
     }

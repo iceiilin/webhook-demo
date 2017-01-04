@@ -46,15 +46,6 @@ app.options('*', cors());
 // Parse request body. Limit set to 50MB
 app.use(bodyParser.json({ limit: '50mb' }));
 
-//static file server
-app.use('/', express.static('./static', {dotfiles: 'allow'}));
-app.use('/', directory('./static',
-    {
-        'icons': 'true',
-        'hidden': 'true'
-    }
-));
-
 app.get('/webhook', function(req, res){
     console.log('getting /webhook');
     res.send('hello from get_webhook\n');
@@ -75,6 +66,7 @@ app.get('/webhook', function(req, res){
 
 app.post('/webhook', function(req, res){
     console.log('posting /webhook');
+    debugger;
     var body = req.body || {};
     res.send('hello from get_webhook\n');
     if(wsConn){
@@ -91,6 +83,16 @@ app.post('/webhook', function(req, res){
         ));
     }
 });
+
+//static file server
+app.use('/', express.static('./static', {dotfiles: 'allow'}));
+app.use('/', directory('./static',
+    {
+        'icons': 'true',
+        'hidden': 'true'
+    }
+));
+
 
 var httpServer = http.createServer(app);
 
