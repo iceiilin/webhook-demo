@@ -1,10 +1,10 @@
 {
-  "name": "progress-test",
+  "name": "webhook-ui",
   "version": "0.0.0",
-  "description": "RackHD UI",
+  "description": "webhook UI",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RackHD/on-web-ui.git"
+    "url": "https://github.com/iceiilin/webhook-demo.git"
   },
   "license": "Apache-2.0",
   "engines": {

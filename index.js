@@ -46,52 +46,15 @@ app.options('*', cors());
 // Parse request body. Limit set to 50MB
 app.use(bodyParser.json({ limit: '50mb' }));
 
-app.get('/webhook', function(req, res){
-    console.log('getting /webhook');
-    res.send('hello from get_webhook\n');
-    if(wsConn){
-        console.log('sending ws message');
-        wsConn.send(JSON.stringify(
-            {
-                "createdAt": "2016-12-27T17:56:52.562Z",
-                "type": "graph",
-                "typeId": "b5fbf33c-417d-4c4f-81ad-b9d18acac9f9",
-                "nodeId": "58542c752be86d0672cef383",
-                "action": "finished",
-                "data": "this is fake data"
-            }
-        ));
-    }
-});
-
 app.post('/webhook', function(req, res){
-    console.log('posting /webhook');
-    debugger;
+    console.log('posting /webhook', {msg: req.body});
     var body = req.body || {};
-    res.send('hello from get_webhook\n');
+    res.send('hello from post_webhook\n');
     if(wsConn){
         console.log('sending ws message');
-        wsConn.send(JSON.stringify(
-            {
-                "createdAt": "2016-12-27T17:56:52.562Z",
-                "type": "graph",
-                "typeId": "b5fbf33c-417d-4c4f-81ad-b9d18acac9f9",
-                "nodeId": "58542c752be86d0672cef383",
-                "action": "finished",
-                "data": body
-            }
-        ));
+        wsConn.send(JSON.stringify(req.body));
     }
 });
-
-//static file server
-app.use('/', express.static('./static', {dotfiles: 'allow'}));
-app.use('/', directory('./static',
-    {
-        'icons': 'true',
-        'hidden': 'true'
-    }
-));
 
 
 var httpServer = http.createServer(app);

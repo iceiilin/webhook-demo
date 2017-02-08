@@ -53,14 +53,14 @@ export default class GraphProgressTable extends Component {
 
         let taskIds = Object.keys(this.props.graphData.tasks);
 
-        console.log('----in GraphProgressTable', this.props.graphData);
+        //console.log('----in GraphProgressTable', this.props.graphData);
 
         let taskProgressElementList = [];
 
         taskIds.forEach(function(taskId){
             let taskData = self.props.graphData.tasks[taskId];
 
-            console.log('----in GraphProgressTable, taskData', taskData);
+            //console.log('----in GraphProgressTable, taskData', taskData);
 
             taskProgressElementList.push(
                 <TaskProgress

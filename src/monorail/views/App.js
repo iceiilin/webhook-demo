@@ -38,58 +38,12 @@ export default class App extends Component {
 
             console.log('message received: ', msg);
 
-            //var graphId = self.getGraphIdFromMsg(msg);
+            self.decodeMsg(msg);
 
-            //console.log('GraphId list: ', self.graphProgressCollection);
+            console.log('-----graphProgressCollection', self.graphProgressCollection);
 
-            //RackHDRestAPIv2_0.then(function(client){
-                //client.workflowsGetByInstanceId(
-                    //{identifier: graphId}
-                //)
-                    //.then(function(workflows){
-                        //console.log('API result: ', workflows.obj);
-
-                        //if(workflows.obj.status === 'cancelled') {
-                            //return;
-                        //}
-
-                        //self.graphProgressCollection[graphId] = {};
-                        self.graphProgressCollection[0] = {
-                            graphStatus: "running",
-                            graphProgress: "0",
-                            graphDesc: "test graph",
-                            graphName: "install CentOS",
-                            graphId: "123",
-                            tasks: {}
-                        };
-
-                        self.graphProgressCollection[0].tasks['abc'] = {
-                            taskName: "install centos",
-                            taskStatus: "pending",
-                            taskProgress: 0,
-                            taskDesc: "test task"
-                        };
-
-                        //merge(
-                            //self.graphProgressCollection[graphId],
-                            //self.decodeApiResult(workflows.obj),
-                            //self.decodeMsg(msg)
-                        //);
-
-                        console.log('-----graphProgressCollection', self.graphProgressCollection);
-
-                        self.setState(self.graphProgressCollection);
-                    });
-                    //.catch(function(err){
-                        //console.log("fail checking status for", graphId);
-                        //console.log("error message", err);
-
-                        //if(self.graphIdInCollection(graphId)) {
-                            //delete self.graphProgressCollection[graphId];
-                        //}
-                    //})
-            //})
-        //});
+            self.setState(self.graphProgressCollection);
+        });
 
         return this;
     }
@@ -111,117 +65,59 @@ export default class App extends Component {
         router: PropTypes.any
     }
 
-    graphIdInCollection = (id) => {
-        if(Object.keys(this.graphProgressCollection).indexOf(id) >= 0) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    checkSendTableHeader = () => {
-        let ret = this.tableHeaderSent;
-
-        console.log(this.tableHeaderSent);
-
-        if(this.tableHeaderSent) {
-            this.tableHeaderSent = false;
-        }
-
-        return ret;
-    }
-
-    calcGraphProgress = (tasks) => {
-        console.log('tasks: ', tasks);
-        let totalTaskCount = tasks.length;
-
-        if(totalTaskCount === 0) {
-            return "0%";
-        }
-
-        let finishedTaskCount = 0;
-
-        tasks.forEach(function(task){
-            if(task.state === 'succeeded' || task.state === 'failed') {
-                finishedTaskCount += 1;
-            }
-        });
-
-        let progress = (finishedTaskCount*100/totalTaskCount);
-        console.log('taskProgress Info: ', progress, totalTaskCount, finishedTaskCount);
-
-        return progress;
-    }
-
-    getGraphIdFromMsg = (msg) => {
-        return msg.data.graphId;
-    }
-
-    decodeApiResult = (apiResult) => {
-        var ret = {};
-        ret.graphStatus = apiResult.status;
-        ret.graphProgress = this.calcGraphProgress(apiResult.tasks);
-
-        ret['tasks'] = {};
-
-        apiResult.tasks.forEach(function(task) {
-            let taskProgress = 0;
-
-            if (task.state === 'succeeded' || task.state === 'failed') {
-                taskProgress = 100;
-            }
-            ret['tasks'][task.instanceId] = {
-                taskName: task.label,
-                taskStatus: task.state,
-                taskProgress: taskProgress,
-                taskDesc: task.label
-            }
-        });
-
-        console.log('----decoded message from ApiResult', ret)
-
-        return ret;
-    }
-
     decodeMsg = (msg) => {
-        let ret = {};
-        // ret.graphProgress = this.formatProgress(msg.data.progress.percentage);
-        ret.graphDesc = msg.data.progress.description;
-        ret.graphName = msg.data.graphName;
-        ret.graphId = msg.data.graphId;
 
-        ret['tasks'] = {};
+        var self = this;
 
-        if(msg.data.taskProgress) {
-            let taskId = msg.data.taskProgress.taskId;
-            ret['tasks'][taskId] = {
-                taskProgress: this.formatProgress(msg.data.taskProgress.progress.percentage),
-                taskDesc: msg.data.taskProgress.progress.description,
-                taskName: msg.data.taskProgress.taskName
-            }
+        let graphId = msg.graphId;
+        let taskId = msg.taskProgress.taskId;
+
+        // Get graph info
+        if (!self.graphProgressCollection.hasOwnProperty(graphId)) {
+            self.graphProgressCollection[graphId] = {
+                graphId: msg.graphId,
+                graphDesc: msg.progress.description,
+                graphName: msg.graphName,
+                graphProgress: parseInt(msg.progress.percentage),
+                tasks: {}
+            };
+        }
+        else {
+            self.graphProgressCollection[graphId].graphProgress =
+                parseInt(msg.progress.percentage);
         }
 
-        console.log('decoded progress from Msg: ', ret);
-
-        return ret;
-    }
-
-    formatProgress = (progressStr) => {
-        var progressNum = parseInt(progressStr);
-        if(isNaN(progressNum)){
-            progressNum = 0;
+        if (self.graphProgressCollection[graphId].graphProgress < 100) {
+            self.graphProgressCollection[graphId].graphStatus = "running";
+        }
+        else {
+            self.graphProgressCollection[graphId].graphStatus = "succeeded";
         }
 
-        return progressNum;
-    }
+        if (!self.graphProgressCollection[graphId].tasks.hasOwnProperty(taskId)) {
+            self.graphProgressCollection[graphId].tasks[taskId] = {
+                taskName: msg.taskProgress.taskName,
+                taskProgress: parseInt(msg.taskProgress.progress.percentage),
+                taskDesc: msg.taskProgress.progress.description
+            };
+        }
+        else {
+            self.graphProgressCollection[graphId].tasks[taskId].taskProgress =
+                parseInt(msg.taskProgress.progress.percentage);
+        }
 
-    renderOneGraph = () => {
+        if (self.graphProgressCollection[graphId].tasks[taskId].taskProgress < 100) {
+            self.graphProgressCollection[graphId].tasks[taskId].taskStatus = "running";
+        }
+        else {
+            self.graphProgressCollection[graphId].tasks[taskId].taskStatus = "succeeded";
+        }
     }
 
     renderHeader = () => {
         return (
             <AppBar
-                title="Tools for demo progress notification"
+                title="Tools for demo event webhook"
             />
         )
     }
