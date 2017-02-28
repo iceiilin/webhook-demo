@@ -46,13 +46,13 @@ app.options('*', cors());
 // Parse request body. Limit set to 50MB
 app.use(bodyParser.json({ limit: '50mb' }));
 
-app.post('/webhook', function(req, res){
-    console.log('posting /webhook', {msg: req.body});
-    var body = req.body || {};
+app.post('/', function(req, res){
+    console.log('posting /webhook', JSON.stringify(req.body, null, 2));
+    var body = req.body || {data:""};
     res.send('hello from post_webhook\n');
     if(wsConn){
         console.log('sending ws message');
-        wsConn.send(JSON.stringify(req.body));
+        wsConn.send(JSON.stringify(req.body.data));
     }
 });
 

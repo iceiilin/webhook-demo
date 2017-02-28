@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 
 import merge from 'lodash/merge';
 
+import RackHDRestAPIv2_0 from 'src-common/messengers/RackHDRestAPIv2_0';
 import Messenger from 'src-common/lib/Messenger';
 import config from 'src-config';
 import RackHDRestAPIv2_0 from 'src-common/messengers/RackHDRestAPIv2_0';
@@ -70,7 +71,6 @@ export default class App extends Component {
         var self = this;
 
         let graphId = msg.graphId;
-        let taskId = msg.taskProgress.taskId;
 
         // Get graph info
         if (!self.graphProgressCollection.hasOwnProperty(graphId)) {
@@ -83,6 +83,8 @@ export default class App extends Component {
             };
         }
         else {
+            self.graphProgressCollection[graphId].graphDesc =
+                msg.progress.description;
             self.graphProgressCollection[graphId].graphProgress =
                 parseInt(msg.progress.percentage);
         }
@@ -94,6 +96,12 @@ export default class App extends Component {
             self.graphProgressCollection[graphId].graphStatus = "succeeded";
         }
 
+        if (!msg.hasOwnProperty("taskProgress")) {
+            return;
+        }
+
+        let taskId = msg.taskProgress.taskId;
+
         if (!self.graphProgressCollection[graphId].tasks.hasOwnProperty(taskId)) {
             self.graphProgressCollection[graphId].tasks[taskId] = {
                 taskName: msg.taskProgress.taskName,
@@ -102,8 +110,12 @@ export default class App extends Component {
             };
         }
         else {
+            self.graphProgressCollection[graphId].tasks[taskId].taskDesc =
+                msg.taskProgress.progress.description;
             self.graphProgressCollection[graphId].tasks[taskId].taskProgress =
-                parseInt(msg.taskProgress.progress.percentage);
+                msg.taskProgress.progress.hasOwnProperty("percentage")?
+                parseInt(msg.taskProgress.progress.percentage):
+                Math.floor(100*msg.taskProgress.progress.value/msg.taskProgress.progress.maximum);
         }
 
         if (self.graphProgressCollection[graphId].tasks[taskId].taskProgress < 100) {
