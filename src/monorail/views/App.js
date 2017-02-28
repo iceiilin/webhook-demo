@@ -5,7 +5,6 @@ import { Link } from 'react-router';
 
 import merge from 'lodash/merge';
 
-import RackHDRestAPIv2_0 from 'src-common/messengers/RackHDRestAPIv2_0';
 import Messenger from 'src-common/lib/Messenger';
 import config from 'src-config';
 import RackHDRestAPIv2_0 from 'src-common/messengers/RackHDRestAPIv2_0';
@@ -96,6 +95,12 @@ export default class App extends Component {
             self.graphProgressCollection[graphId].graphStatus = "succeeded";
         }
 
+        for (var key in self.graphProgressCollection[graphId].tasks) {
+            if (key.match(/TBD*/)){
+                delete self.graphProgressCollection[graphId].tasks[key];
+            }
+        }
+
         if (!msg.hasOwnProperty("taskProgress")) {
             return;
         }
@@ -123,6 +128,12 @@ export default class App extends Component {
         }
         else {
             self.graphProgressCollection[graphId].tasks[taskId].taskStatus = "succeeded";
+        }
+
+        var count = Object.keys(self.graphProgressCollection[graphId].tasks).length;
+        console.log("!!!!", count);
+        for (let i = count; i < msg.progress.maximum; i ++) {
+            self.graphProgressCollection[graphId].tasks["TBD "+(i+1)]={taskStatus: "pending"};
         }
     }
 
